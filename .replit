@@ -1,5 +1,5 @@
-run = ["sh", "-c", "dotnet run"]
-entrypoint = "Program.cs"
+run = "dotnet run"
+hidden = [".config"]
 
 [env]
 DOTNET_NOLOGO = "1"
@@ -12,6 +12,9 @@ channel = "stable-22_11"
 run = ["sh", "-c", "dotnet run"]
 deploymentTarget = "cloudrun"
 
+[languages]
+csharp = "8.0"
+
 [languages.csharp]
 pattern = "**/*.cs"
 
@@ -22,7 +25,4 @@ start = ["omnisharp", "--languageserver"]
 language = "dotnet"
 
 [packager.features]
-packageSearch = true
-
-[languages]
-csharp = "8.0" 
+packageSearch = true 

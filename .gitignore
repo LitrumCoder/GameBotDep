@@ -63,4 +63,12 @@ artifacts/
 .builds
 *.pidb
 *.svclog
-*.scc 
+*.scc
+
+## Local settings
+appsettings.Development.json
+*.userprefs
+
+## Replit specific
+.replit
+replit.nix 
