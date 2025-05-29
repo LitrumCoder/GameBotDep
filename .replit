@@ -1,5 +1,5 @@
-run = "dotnet run"
-hidden = [".config"]
+run = ["dotnet", "run"]
+entrypoint = "Program.cs"
 
 [env]
 DOTNET_NOLOGO = "1"
@@ -8,15 +8,9 @@ DOTNET_CLI_TELEMETRY_OPTOUT = "1"
 [nix]
 channel = "stable-22_11"
 
-[deployment]
-run = ["sh", "-c", "dotnet run"]
-deploymentTarget = "cloudrun"
-
-[languages]
-csharp = "8.0"
-
 [languages.csharp]
 pattern = "**/*.cs"
+syntax = "csharp"
 
 [languages.csharp.languageServer]
 start = ["omnisharp", "--languageserver"]
