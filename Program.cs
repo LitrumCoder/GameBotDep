@@ -61,9 +61,16 @@ try
         // Пробуем разные форматы URL для webhook
         var possibleUrls = new[]
         {
-            $"https://{replitSlug}-{replitOwner}.repl.co/api/webhook",
+            $"https://{replitSlug.ToLower()}-{replitOwner.ToLower()}.repl.co/api/webhook",
+            $"https://telegramgamebot-{replitOwner.ToLower()}.repl.co/api/webhook",
             $"https://{replitId}.id.repl.co/api/webhook"
         };
+
+        Console.WriteLine("Доступные переменные окружения:");
+        foreach (var env in Environment.GetEnvironmentVariables().Keys)
+        {
+            Console.WriteLine($"{env}: {Environment.GetEnvironmentVariable(env?.ToString() ?? "")}");
+        }
 
         Exception lastException = null;
         bool webhookSet = false;
@@ -72,26 +79,46 @@ try
         {
             try
             {
-                Console.WriteLine($"Пробую установить webhook на URL: {url}");
+                Console.WriteLine($"\nПробую установить webhook на URL: {url}");
                 
+                // Проверяем DNS резолвинг
+                try
+                {
+                    var host = new Uri(url).Host;
+                    Console.WriteLine($"Проверка DNS для {host}...");
+                    var addresses = await System.Net.Dns.GetHostAddressesAsync(host);
+                    Console.WriteLine($"DNS резолвинг успешен. IP адреса: {string.Join(", ", addresses.Select(a => a.ToString()))}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Ошибка DNS резолвинга: {ex.Message}");
+                    continue;
+                }
+
                 // Проверяем базовый URL
                 var baseUrl = url.Replace("/api/webhook", "");
                 using (var client = new HttpClient())
                 {
+                    client.Timeout = TimeSpan.FromSeconds(10);
                     try
                     {
                         Console.WriteLine($"Проверка доступности: {baseUrl}");
                         var response = await client.GetAsync(baseUrl);
                         Console.WriteLine($"Ответ сервера: {response.StatusCode}");
+                        
+                        // Читаем тело ответа для дополнительной диагностики
+                        var content = await response.Content.ReadAsStringAsync();
+                        Console.WriteLine($"Тело ответа: {content.Substring(0, Math.Min(content.Length, 200))}...");
                     }
                     catch (Exception ex)
                     {
                         Console.WriteLine($"Предупреждение при проверке {baseUrl}: {ex.Message}");
-                        continue; // Пробуем следующий URL
+                        continue;
                     }
                 }
 
                 // Пытаемся установить webhook
+                Console.WriteLine($"Попытка установки webhook на {url}...");
                 await botClient.SetWebhookAsync(
                     url: url,
                     allowedUpdates: new[] { UpdateType.Message, UpdateType.CallbackQuery },
@@ -109,6 +136,10 @@ try
                 else
                 {
                     Console.WriteLine($"Ошибка webhook для {url}: {webhookInfo.LastErrorMessage}");
+                    if (webhookInfo.LastErrorDate.HasValue)
+                    {
+                        Console.WriteLine($"Время последней ошибки: {webhookInfo.LastErrorDate.Value:yyyy-MM-dd HH:mm:ss}");
+                    }
                     lastException = new Exception(webhookInfo.LastErrorMessage);
                 }
             }
