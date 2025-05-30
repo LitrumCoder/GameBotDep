@@ -3,8 +3,7 @@ hidden = [".config"]
 entrypoint = "Program.cs"
 
 [env]
-REPL_SLUG = "workspace"
-REPL_OWNER = "apric9556"
+REPL_SLUG = "TelegramGameBot"
 PORT = "8080"
 DOTNET_NOLOGO = "1"
 DOTNET_CLI_TELEMETRY_OPTOUT = "1"
@@ -27,4 +26,8 @@ packageSearch = true
 
 [deployment]
 run = ["sh", "-c", "dotnet run"]
-deploymentTarget = "cloudrun" 
+deploymentTarget = "cloudrun"
+
+[http]
+host = "0.0.0.0"
+port = "8080" 

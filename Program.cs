@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using TelegramGameBot.Services;
 using TelegramGameBot.Services.Games;
 using Telegram.Bot.Polling;
+using System.Net.Http;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,17 +45,31 @@ try
         await Task.Delay(1000);
 
         // Получаем URL для Replit
-        var replitSlug = Environment.GetEnvironmentVariable("REPL_SLUG") ?? "workspace";
-        var replitOwner = Environment.GetEnvironmentVariable("REPL_OWNER") ?? "apric9556";
-        
+        var replitId = Environment.GetEnvironmentVariable("REPL_ID");
+        var replitSlug = Environment.GetEnvironmentVariable("REPL_SLUG");
+        Console.WriteLine($"REPL_ID: {replitId}");
         Console.WriteLine($"REPL_SLUG: {replitSlug}");
-        Console.WriteLine($"REPL_OWNER: {replitOwner}");
 
-        var webhookUrl = $"https://{replitSlug}.{replitOwner}.repl.co/api/webhook";
+        // Используем актуальный URL Replit
+        var webhookUrl = $"https://{replitId}.id.repl.co/api/webhook";
         Console.WriteLine($"Настраиваю webhook URL: {webhookUrl}");
 
         try 
         {
+            // Проверяем доступность URL
+            using (var client = new HttpClient())
+            {
+                try
+                {
+                    var response = await client.GetAsync(webhookUrl.Replace("/api/webhook", ""));
+                    Console.WriteLine($"Проверка доступности URL: {response.StatusCode}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Ошибка при проверке URL: {ex.Message}");
+                }
+            }
+
             await botClient.SetWebhookAsync(
                 url: webhookUrl,
                 allowedUpdates: new[] { UpdateType.Message, UpdateType.CallbackQuery },
