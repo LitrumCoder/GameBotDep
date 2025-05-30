@@ -1,12 +1,16 @@
 run = "dotnet run"
+hidden = [".config"]
 entrypoint = "Program.cs"
 
 [env]
+REPL_SLUG = "workspace"
+REPL_OWNER = "apric9556"
+PORT = "8080"
 DOTNET_NOLOGO = "1"
 DOTNET_CLI_TELEMETRY_OPTOUT = "1"
 
 [nix]
-channel = "stable-23_11"
+channel = "stable-22_11"
 
 [languages.csharp]
 pattern = "**/*.cs"

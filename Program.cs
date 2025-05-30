@@ -38,39 +38,50 @@ try
     if (isReplit)
     {
         // Режим Replit с webhook
+        Console.WriteLine("Запуск в режиме Replit...");
+        
         await botClient.DeleteWebhookAsync();
         await Task.Delay(1000);
 
         // Получаем URL для Replit
-        var replitSlug = Environment.GetEnvironmentVariable("REPL_SLUG");
-        var replitOwner = Environment.GetEnvironmentVariable("REPL_OWNER");
+        var replitSlug = Environment.GetEnvironmentVariable("REPL_SLUG") ?? "workspace";
+        var replitOwner = Environment.GetEnvironmentVariable("REPL_OWNER") ?? "apric9556";
         
-        if (string.IsNullOrEmpty(replitSlug) || string.IsNullOrEmpty(replitOwner))
-        {
-            throw new Exception("Не удалось получить REPL_SLUG или REPL_OWNER из переменных окружения");
-        }
+        Console.WriteLine($"REPL_SLUG: {replitSlug}");
+        Console.WriteLine($"REPL_OWNER: {replitOwner}");
 
         var webhookUrl = $"https://{replitSlug}.{replitOwner}.repl.co/api/webhook";
         Console.WriteLine($"Настраиваю webhook URL: {webhookUrl}");
 
-        await botClient.SetWebhookAsync(
-            url: webhookUrl,
-            allowedUpdates: new[] { UpdateType.Message, UpdateType.CallbackQuery }
-        );
-
-        // Проверяем статус webhook
-        var webhookInfo = await botClient.GetWebhookInfoAsync();
-        if (!string.IsNullOrEmpty(webhookInfo.LastErrorMessage))
+        try 
         {
-            Console.WriteLine($"Ошибка webhook: {webhookInfo.LastErrorMessage}");
-            if (webhookInfo.LastErrorDate.HasValue)
+            await botClient.SetWebhookAsync(
+                url: webhookUrl,
+                allowedUpdates: new[] { UpdateType.Message, UpdateType.CallbackQuery },
+                dropPendingUpdates: true
+            );
+
+            // Проверяем статус webhook
+            var webhookInfo = await botClient.GetWebhookInfoAsync();
+            Console.WriteLine($"Webhook info: {System.Text.Json.JsonSerializer.Serialize(webhookInfo)}");
+            
+            if (!string.IsNullOrEmpty(webhookInfo.LastErrorMessage))
             {
-                Console.WriteLine($"Время последней ошибки: {webhookInfo.LastErrorDate.Value:yyyy-MM-dd HH:mm:ss}");
+                Console.WriteLine($"Ошибка webhook: {webhookInfo.LastErrorMessage}");
+                if (webhookInfo.LastErrorDate.HasValue)
+                {
+                    Console.WriteLine($"Время последней ошибки: {webhookInfo.LastErrorDate.Value:yyyy-MM-dd HH:mm:ss}");
+                }
+            }
+            else
+            {
+                Console.WriteLine("Webhook успешно установлен");
             }
         }
-        else
+        catch (Exception ex)
         {
-            Console.WriteLine("Webhook успешно установлен");
+            Console.WriteLine($"Ошибка при установке webhook: {ex.Message}");
+            throw;
         }
 
         app.UseForwardedHeaders(new ForwardedHeadersOptions
@@ -78,8 +89,17 @@ try
             ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
         });
 
+        // Добавляем middleware для логирования запросов
+        app.Use(async (context, next) =>
+        {
+            Console.WriteLine($"Получен запрос: {context.Request.Method} {context.Request.Path}");
+            await next();
+        });
+
         app.MapControllers();
         Console.WriteLine($"Бот запущен на Replit и слушает на {webhookUrl}");
+        
+        // Запускаем на всех интерфейсах
         await app.RunAsync($"http://0.0.0.0:{port}");
     }
     else
