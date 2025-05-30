@@ -44,67 +44,84 @@ try
         await botClient.DeleteWebhookAsync();
         await Task.Delay(1000);
 
-        // Получаем данные Replit
+        // Получаем и проверяем данные Replit
         var replitId = Environment.GetEnvironmentVariable("REPL_ID");
-        var replitOwner = Environment.GetEnvironmentVariable("REPL_OWNER");
-        var replitSlug = Environment.GetEnvironmentVariable("REPL_SLUG") ?? "TelegramGameBot";
+        var replitOwner = Environment.GetEnvironmentVariable("REPL_OWNER")?.ToLower();
+        var replitSlug = Environment.GetEnvironmentVariable("REPL_SLUG")?.ToLower() ?? "telegramgamebot";
+
+        if (string.IsNullOrEmpty(replitOwner))
+        {
+            throw new Exception("REPL_OWNER не установлен в переменных окружения");
+        }
 
         Console.WriteLine($"REPL_ID: {replitId}");
         Console.WriteLine($"REPL_OWNER: {replitOwner}");
         Console.WriteLine($"REPL_SLUG: {replitSlug}");
 
-        // Формируем URL для webhook (новый формат Replit)
-        var webhookUrl = $"https://{replitSlug.ToLower()}-{replitOwner.ToLower()}.repl.co/api/webhook";
-        Console.WriteLine($"Настраиваю webhook URL: {webhookUrl}");
-
-        try 
+        // Пробуем разные форматы URL для webhook
+        var possibleUrls = new[]
         {
-            // Проверяем доступность URL перед установкой webhook
-            using (var client = new HttpClient())
+            $"https://{replitSlug}-{replitOwner}.repl.co/api/webhook",
+            $"https://{replitId}.id.repl.co/api/webhook"
+        };
+
+        Exception lastException = null;
+        bool webhookSet = false;
+
+        foreach (var url in possibleUrls)
+        {
+            try
             {
-                try
+                Console.WriteLine($"Пробую установить webhook на URL: {url}");
+                
+                // Проверяем базовый URL
+                var baseUrl = url.Replace("/api/webhook", "");
+                using (var client = new HttpClient())
                 {
-                    var baseUrl = webhookUrl.Replace("/api/webhook", "");
-                    Console.WriteLine($"Проверка доступности базового URL: {baseUrl}");
-                    var response = await client.GetAsync(baseUrl);
-                    Console.WriteLine($"Статус ответа: {response.StatusCode}");
+                    try
+                    {
+                        Console.WriteLine($"Проверка доступности: {baseUrl}");
+                        var response = await client.GetAsync(baseUrl);
+                        Console.WriteLine($"Ответ сервера: {response.StatusCode}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Предупреждение при проверке {baseUrl}: {ex.Message}");
+                        continue; // Пробуем следующий URL
+                    }
                 }
-                catch (Exception ex)
+
+                // Пытаемся установить webhook
+                await botClient.SetWebhookAsync(
+                    url: url,
+                    allowedUpdates: new[] { UpdateType.Message, UpdateType.CallbackQuery },
+                    dropPendingUpdates: true
+                );
+
+                // Проверяем установку
+                var webhookInfo = await botClient.GetWebhookInfoAsync();
+                if (string.IsNullOrEmpty(webhookInfo.LastErrorMessage))
                 {
-                    Console.WriteLine($"Предупреждение при проверке URL: {ex.Message}");
-                    // Продолжаем выполнение, так как ошибка может быть связана с тем,
-                    // что сервер еще не полностью запущен
+                    Console.WriteLine($"Webhook успешно установлен на {url}");
+                    webhookSet = true;
+                    break;
+                }
+                else
+                {
+                    Console.WriteLine($"Ошибка webhook для {url}: {webhookInfo.LastErrorMessage}");
+                    lastException = new Exception(webhookInfo.LastErrorMessage);
                 }
             }
-
-            Console.WriteLine("Попытка установки webhook...");
-            await botClient.SetWebhookAsync(
-                url: webhookUrl,
-                allowedUpdates: new[] { UpdateType.Message, UpdateType.CallbackQuery },
-                dropPendingUpdates: true
-            );
-
-            // Проверяем статус webhook
-            var webhookInfo = await botClient.GetWebhookInfoAsync();
-            Console.WriteLine($"Webhook info: {webhookInfo.Url}");
-            
-            if (!string.IsNullOrEmpty(webhookInfo.LastErrorMessage))
+            catch (Exception ex)
             {
-                Console.WriteLine($"Последняя ошибка webhook: {webhookInfo.LastErrorMessage}");
-                if (webhookInfo.LastErrorDate.HasValue)
-                {
-                    Console.WriteLine($"Время ошибки: {webhookInfo.LastErrorDate.Value:yyyy-MM-dd HH:mm:ss}");
-                }
-            }
-            else
-            {
-                Console.WriteLine("Webhook успешно установлен");
+                Console.WriteLine($"Ошибка при установке webhook на {url}: {ex.Message}");
+                lastException = ex;
             }
         }
-        catch (Exception ex)
+
+        if (!webhookSet)
         {
-            Console.WriteLine($"Ошибка при установке webhook: {ex.Message}");
-            throw;
+            throw new Exception($"Не удалось установить webhook ни на один из URL. Последняя ошибка: {lastException?.Message}");
         }
 
         app.UseForwardedHeaders(new ForwardedHeadersOptions
@@ -117,11 +134,13 @@ try
         {
             Console.WriteLine($"Получен запрос: {context.Request.Method} {context.Request.Path}");
             await next();
+            Console.WriteLine($"Ответ отправлен: {context.Response.StatusCode}");
         });
 
         app.MapControllers();
-        Console.WriteLine($"Бот запущен на Replit и слушает на {webhookUrl}");
+        Console.WriteLine("Бот запущен на Replit");
         
+        // Запускаем приложение
         await app.RunAsync($"http://0.0.0.0:{port}");
     }
     else

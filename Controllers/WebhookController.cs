@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Telegram.Bot.Types;
 using TelegramGameBot.Services;
+using System.Text.Json;
 
 namespace TelegramGameBot.Controllers
 {
@@ -22,21 +23,44 @@ namespace TelegramGameBot.Controllers
         {
             try
             {
-                _logger.LogInformation("Получено обновление: {UpdateType}", update.Type);
+                // Подробное логирование входящего запроса
+                _logger.LogInformation("Получен webhook запрос");
+                _logger.LogInformation("Headers: {Headers}", JsonSerializer.Serialize(Request.Headers));
+                _logger.LogInformation("Update: {Update}", JsonSerializer.Serialize(update));
+
+                if (update == null)
+                {
+                    _logger.LogWarning("Получен пустой update");
+                    return BadRequest("Update object is null");
+                }
+
+                _logger.LogInformation("Тип обновления: {UpdateType}", update.Type);
                 await _gameService.HandleUpdateAsync(update);
+                
+                _logger.LogInformation("Обновление успешно обработано");
                 return Ok();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Ошибка при обработке обновления");
-                return StatusCode(500);
+                return StatusCode(500, new { error = ex.Message });
             }
         }
 
         [HttpGet]
         public IActionResult Get()
         {
-            return Ok("Webhook endpoint is working!");
+            var info = new
+            {
+                Status = "OK",
+                Timestamp = DateTime.UtcNow,
+                Headers = Request.Headers,
+                Host = Request.Host.Value,
+                Scheme = Request.Scheme
+            };
+
+            _logger.LogInformation("Проверка webhook endpoint: {Info}", JsonSerializer.Serialize(info));
+            return Ok(info);
         }
     }
 }
