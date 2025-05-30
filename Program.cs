@@ -47,14 +47,20 @@ try
         // Получаем URL для Replit
         var replitId = Environment.GetEnvironmentVariable("REPL_ID");
         var replitSlug = Environment.GetEnvironmentVariable("REPL_SLUG");
-        var replitOwner = Environment.GetEnvironmentVariable("REPL_OWNER");
         
         Console.WriteLine($"REPL_ID: {replitId}");
         Console.WriteLine($"REPL_SLUG: {replitSlug}");
-        Console.WriteLine($"REPL_OWNER: {replitOwner}");
 
-        // Используем актуальный URL Replit
-        var webhookUrl = $"https://{replitSlug}.{replitOwner}.repl.co/api/webhook";
+        // Определяем URL через переменную окружения
+        var replitUrl = Environment.GetEnvironmentVariable("REPL_URL");
+        if (string.IsNullOrEmpty(replitUrl))
+        {
+            // Если REPL_URL не установлен, используем стандартный формат
+            replitUrl = $"https://{replitId}.id.repl.co";
+        }
+
+        var webhookUrl = $"{replitUrl}/api/webhook";
+        Console.WriteLine($"REPL_URL: {replitUrl}");
         Console.WriteLine($"Настраиваю webhook URL: {webhookUrl}");
 
         try 
@@ -65,18 +71,24 @@ try
                 ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true
             }))
             {
+                client.Timeout = TimeSpan.FromSeconds(5);
                 try
                 {
-                    var baseUrl = $"https://{replitSlug}.{replitOwner}.repl.co";
-                    var response = await client.GetAsync(baseUrl);
-                    Console.WriteLine($"Проверка доступности URL {baseUrl}: {response.StatusCode}");
+                    Console.WriteLine($"Проверка доступности базового URL...");
+                    var response = await client.GetAsync(replitUrl);
+                    Console.WriteLine($"Ответ сервера: {response.StatusCode}");
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Ошибка при проверке URL: {ex.Message}");
+                    if (ex.InnerException != null)
+                    {
+                        Console.WriteLine($"Внутренняя ошибка: {ex.InnerException.Message}");
+                    }
                 }
             }
 
+            Console.WriteLine("Попытка установки webhook...");
             await botClient.SetWebhookAsync(
                 url: webhookUrl,
                 allowedUpdates: new[] { UpdateType.Message, UpdateType.CallbackQuery },
