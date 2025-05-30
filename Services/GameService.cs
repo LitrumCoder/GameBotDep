@@ -267,8 +267,11 @@ namespace TelegramGameBot.Services
                             break;
                         case "minesweeper":
                         case var c when c?.StartsWith("minesweeper_") == true:
-                            _userService.SetCurrentGame(userId, command);
-                            await _minesweeperGame.HandleCommand(chatId.Value, userId, command);
+                            if (command != null)
+                            {
+                                _userService.SetCurrentGame(userId, command);
+                                await _minesweeperGame.HandleCommand(chatId.Value, userId, command);
+                            }
                             break;
                         case "balance":
                             await ShowBalance(chatId.Value, userId);

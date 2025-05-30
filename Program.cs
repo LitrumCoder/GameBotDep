@@ -42,17 +42,36 @@ try
         await Task.Delay(1000);
 
         // Получаем URL для Replit
-        var replitUrl = Environment.GetEnvironmentVariable("REPL_SLUG") + "." + 
-                       Environment.GetEnvironmentVariable("REPL_OWNER") + "." +
-                       "repl.co";
+        var replitSlug = Environment.GetEnvironmentVariable("REPL_SLUG");
+        var replitOwner = Environment.GetEnvironmentVariable("REPL_OWNER");
         
-        var webhookUrl = $"https://{replitUrl}/api/webhook";
+        if (string.IsNullOrEmpty(replitSlug) || string.IsNullOrEmpty(replitOwner))
+        {
+            throw new Exception("Не удалось получить REPL_SLUG или REPL_OWNER из переменных окружения");
+        }
+
+        var webhookUrl = $"https://{replitSlug}.{replitOwner}.repl.co/api/webhook";
         Console.WriteLine($"Настраиваю webhook URL: {webhookUrl}");
 
         await botClient.SetWebhookAsync(
             url: webhookUrl,
             allowedUpdates: new[] { UpdateType.Message, UpdateType.CallbackQuery }
         );
+
+        // Проверяем статус webhook
+        var webhookInfo = await botClient.GetWebhookInfoAsync();
+        if (!string.IsNullOrEmpty(webhookInfo.LastErrorMessage))
+        {
+            Console.WriteLine($"Ошибка webhook: {webhookInfo.LastErrorMessage}");
+            if (webhookInfo.LastErrorDate.HasValue)
+            {
+                Console.WriteLine($"Время последней ошибки: {webhookInfo.LastErrorDate.Value:yyyy-MM-dd HH:mm:ss}");
+            }
+        }
+        else
+        {
+            Console.WriteLine("Webhook успешно установлен");
+        }
 
         app.UseForwardedHeaders(new ForwardedHeadersOptions
         {
