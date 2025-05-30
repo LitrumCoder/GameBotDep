@@ -1,6 +1,6 @@
 { pkgs }: {
     deps = [
         pkgs.dotnet-sdk_7
-        pkgs.nodejs
+        pkgs.dotnet-runtime_7
     ];
 } 

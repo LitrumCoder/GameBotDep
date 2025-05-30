@@ -6,7 +6,7 @@ Telegram бот для игры, написанный на C# с использ�
 
 ### Локальный запуск
 
-1. Установите [.NET 8.0 SDK](https://dotnet.microsoft.com/download)
+1. Установите [.NET 7.0 SDK](https://dotnet.microsoft.com/download)
 2. Клонируйте репозиторий:
 ```bash
 git clone https://github.com/LitrumCoder/GameBotDep.git
@@ -37,7 +37,7 @@ dotnet run
 ## Разработка
 
 Проект использует:
-- .NET 8.0
+- .NET 7.0
 - Telegram.Bot 19.0.0
 - ASP.NET Core для обработки webhook'ов
 
