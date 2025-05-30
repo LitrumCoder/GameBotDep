@@ -51,15 +51,15 @@ try
         Console.WriteLine($"REPL_ID: {replitId}");
         Console.WriteLine($"REPL_SLUG: {replitSlug}");
 
-        // Определяем URL через переменную окружения
+        // Определяем URL через переменную окружения или генерируем его
         var replitUrl = Environment.GetEnvironmentVariable("REPL_URL");
         if (string.IsNullOrEmpty(replitUrl))
         {
-            // Если REPL_URL не установлен, используем стандартный формат
-            replitUrl = $"https://{replitId}.id.repl.co";
+            // Используем .repl.dev домен
+            replitUrl = $"https://{replitSlug}.{replitId}.repl.dev";
         }
 
-        var webhookUrl = $"{replitUrl}/api/webhook";
+        var webhookUrl = $"{replitUrl.TrimEnd('/')}/api/webhook";
         Console.WriteLine($"REPL_URL: {replitUrl}");
         Console.WriteLine($"Настраиваю webhook URL: {webhookUrl}");
 
@@ -71,12 +71,31 @@ try
                 ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true
             }))
             {
-                client.Timeout = TimeSpan.FromSeconds(5);
+                client.Timeout = TimeSpan.FromSeconds(10);
                 try
                 {
                     Console.WriteLine($"Проверка доступности базового URL...");
-                    var response = await client.GetAsync(replitUrl);
-                    Console.WriteLine($"Ответ сервера: {response.StatusCode}");
+                    
+                    // Пробуем несколько раз, так как Replit может не сразу ответить
+                    for (int i = 1; i <= 3; i++)
+                    {
+                        try
+                        {
+                            Console.WriteLine($"Попытка {i} из 3...");
+                            var response = await client.GetAsync(replitUrl);
+                            Console.WriteLine($"Ответ сервера: {response.StatusCode}");
+                            break;
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Ошибка при попытке {i}: {ex.Message}");
+                            if (i < 3)
+                            {
+                                Console.WriteLine("Ожидание 5 секунд перед следующей попыткой...");
+                                await Task.Delay(5000);
+                            }
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
