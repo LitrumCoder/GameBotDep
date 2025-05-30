@@ -5,6 +5,7 @@ using TelegramGameBot.Services;
 using TelegramGameBot.Services.Games;
 using Telegram.Bot.Polling;
 using System.Net.Http;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,66 +45,33 @@ try
         await botClient.DeleteWebhookAsync();
         await Task.Delay(1000);
 
-        // Получаем URL для Replit
-        var replitId = Environment.GetEnvironmentVariable("REPL_ID");
-        var replitSlug = Environment.GetEnvironmentVariable("REPL_SLUG");
+        // Настраиваем ngrok
+        Console.WriteLine("Настройка ngrok...");
+        var ngrokUrl = await GetNgrokUrl();
         
-        Console.WriteLine($"REPL_ID: {replitId}");
-        Console.WriteLine($"REPL_SLUG: {replitSlug}");
-
-        // Определяем URL через переменную окружения или генерируем его
-        var replitUrl = Environment.GetEnvironmentVariable("REPL_URL");
-        if (string.IsNullOrEmpty(replitUrl))
+        if (string.IsNullOrEmpty(ngrokUrl))
         {
-            // Используем .repl.dev домен
-            replitUrl = $"https://{replitSlug}.{replitId}.repl.dev";
+            throw new Exception("Не удалось получить URL от ngrok");
         }
 
-        var webhookUrl = $"{replitUrl.TrimEnd('/')}/api/webhook";
-        Console.WriteLine($"REPL_URL: {replitUrl}");
+        var webhookUrl = $"{ngrokUrl.TrimEnd('/')}/api/webhook";
         Console.WriteLine($"Настраиваю webhook URL: {webhookUrl}");
 
         try 
         {
             // Проверяем доступность URL
-            using (var client = new HttpClient(new HttpClientHandler 
-            {
-                ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true
-            }))
+            using (var client = new HttpClient())
             {
                 client.Timeout = TimeSpan.FromSeconds(10);
                 try
                 {
                     Console.WriteLine($"Проверка доступности базового URL...");
-                    
-                    // Пробуем несколько раз, так как Replit может не сразу ответить
-                    for (int i = 1; i <= 3; i++)
-                    {
-                        try
-                        {
-                            Console.WriteLine($"Попытка {i} из 3...");
-                            var response = await client.GetAsync(replitUrl);
-                            Console.WriteLine($"Ответ сервера: {response.StatusCode}");
-                            break;
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"Ошибка при попытке {i}: {ex.Message}");
-                            if (i < 3)
-                            {
-                                Console.WriteLine("Ожидание 5 секунд перед следующей попыткой...");
-                                await Task.Delay(5000);
-                            }
-                        }
-                    }
+                    var response = await client.GetAsync(ngrokUrl);
+                    Console.WriteLine($"Ответ сервера: {response.StatusCode}");
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Ошибка при проверке URL: {ex.Message}");
-                    if (ex.InnerException != null)
-                    {
-                        Console.WriteLine($"Внутренняя ошибка: {ex.InnerException.Message}");
-                    }
                 }
             }
 
@@ -116,20 +84,7 @@ try
 
             // Проверяем статус webhook
             var webhookInfo = await botClient.GetWebhookInfoAsync();
-            Console.WriteLine($"Webhook info: {System.Text.Json.JsonSerializer.Serialize(webhookInfo)}");
-            
-            if (!string.IsNullOrEmpty(webhookInfo.LastErrorMessage))
-            {
-                Console.WriteLine($"Ошибка webhook: {webhookInfo.LastErrorMessage}");
-                if (webhookInfo.LastErrorDate.HasValue)
-                {
-                    Console.WriteLine($"Время последней ошибки: {webhookInfo.LastErrorDate.Value:yyyy-MM-dd HH:mm:ss}");
-                }
-            }
-            else
-            {
-                Console.WriteLine("Webhook успешно установлен");
-            }
+            Console.WriteLine($"Webhook info: {JsonSerializer.Serialize(webhookInfo)}");
         }
         catch (Exception ex)
         {
@@ -142,17 +97,9 @@ try
             ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
         });
 
-        // Добавляем middleware для логирования запросов
-        app.Use(async (context, next) =>
-        {
-            Console.WriteLine($"Получен запрос: {context.Request.Method} {context.Request.Path}");
-            await next();
-        });
-
         app.MapControllers();
         Console.WriteLine($"Бот запущен на Replit и слушает на {webhookUrl}");
         
-        // Запускаем на всех интерфейсах
         await app.RunAsync($"http://0.0.0.0:{port}");
     }
     else
@@ -188,7 +135,6 @@ try
         Console.WriteLine("Бот запущен локально в режиме Long Polling");
         Console.WriteLine("Нажмите Ctrl+C для остановки...");
         
-        // Держим приложение запущенным
         await Task.Delay(-1);
     }
 }
@@ -196,4 +142,45 @@ catch (Exception ex)
 {
     Console.WriteLine($"Ошибка при запуске бота: {ex.Message}");
     return;
+}
+
+// Функция для получения URL от ngrok
+async Task<string> GetNgrokUrl()
+{
+    try
+    {
+        using var client = new HttpClient();
+        var response = await client.GetAsync("http://localhost:4040/api/tunnels");
+        if (response.IsSuccessStatusCode)
+        {
+            var content = await response.Content.ReadAsStringAsync();
+            var tunnels = JsonSerializer.Deserialize<NgrokTunnels>(content);
+            var httpsUrl = tunnels?.Tunnels?.FirstOrDefault(t => t.Proto == "https")?.PublicUrl;
+            if (!string.IsNullOrEmpty(httpsUrl))
+            {
+                return httpsUrl;
+            }
+        }
+        
+        Console.WriteLine("Не удалось получить URL от ngrok API, использую переменную окружения...");
+        return Environment.GetEnvironmentVariable("NGROK_URL");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Ошибка при получении URL от ngrok: {ex.Message}");
+        return Environment.GetEnvironmentVariable("NGROK_URL");
+    }
+}
+
+// Классы для десериализации ответа ngrok API
+public class NgrokTunnels
+{
+    public List<NgrokTunnel> Tunnels { get; set; }
+}
+
+public class NgrokTunnel
+{
+    public string Name { get; set; }
+    public string PublicUrl { get; set; }
+    public string Proto { get; set; }
 }

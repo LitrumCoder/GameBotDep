@@ -1,4 +1,4 @@
-run = "dotnet run"
+run = "bash setup-ngrok.sh && dotnet run"
 hidden = [".config"]
 entrypoint = "Program.cs"
 
@@ -26,7 +26,7 @@ language = "dotnet"
 packageSearch = true
 
 [deployment]
-run = ["sh", "-c", "dotnet run"]
+run = ["sh", "-c", "bash setup-ngrok.sh && dotnet run"]
 deploymentTarget = "cloudrun"
 
 [http]
