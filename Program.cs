@@ -47,22 +47,29 @@ try
         // Получаем URL для Replit
         var replitId = Environment.GetEnvironmentVariable("REPL_ID");
         var replitSlug = Environment.GetEnvironmentVariable("REPL_SLUG");
+        var replitOwner = Environment.GetEnvironmentVariable("REPL_OWNER");
+        
         Console.WriteLine($"REPL_ID: {replitId}");
         Console.WriteLine($"REPL_SLUG: {replitSlug}");
+        Console.WriteLine($"REPL_OWNER: {replitOwner}");
 
         // Используем актуальный URL Replit
-        var webhookUrl = $"https://{replitId}.id.repl.co/api/webhook";
+        var webhookUrl = $"https://{replitSlug}.{replitOwner}.repl.co/api/webhook";
         Console.WriteLine($"Настраиваю webhook URL: {webhookUrl}");
 
         try 
         {
             // Проверяем доступность URL
-            using (var client = new HttpClient())
+            using (var client = new HttpClient(new HttpClientHandler 
+            {
+                ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true
+            }))
             {
                 try
                 {
-                    var response = await client.GetAsync(webhookUrl.Replace("/api/webhook", ""));
-                    Console.WriteLine($"Проверка доступности URL: {response.StatusCode}");
+                    var baseUrl = $"https://{replitSlug}.{replitOwner}.repl.co";
+                    var response = await client.GetAsync(baseUrl);
+                    Console.WriteLine($"Проверка доступности URL {baseUrl}: {response.StatusCode}");
                 }
                 catch (Exception ex)
                 {
