@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using TelegramGameBot.Services;
 using TelegramGameBot.Services.Games;
 using Telegram.Bot.Polling;
+using System.Net.Http;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -52,12 +53,30 @@ try
         Console.WriteLine($"REPL_OWNER: {replitOwner}");
         Console.WriteLine($"REPL_SLUG: {replitSlug}");
 
-        // Формируем URL для webhook
-        var webhookUrl = $"https://{replitSlug}.{replitOwner}.repl.co/api/webhook";
+        // Формируем URL для webhook (новый формат Replit)
+        var webhookUrl = $"https://{replitSlug.ToLower()}-{replitOwner.ToLower()}.repl.co/api/webhook";
         Console.WriteLine($"Настраиваю webhook URL: {webhookUrl}");
 
         try 
         {
+            // Проверяем доступность URL перед установкой webhook
+            using (var client = new HttpClient())
+            {
+                try
+                {
+                    var baseUrl = webhookUrl.Replace("/api/webhook", "");
+                    Console.WriteLine($"Проверка доступности базового URL: {baseUrl}");
+                    var response = await client.GetAsync(baseUrl);
+                    Console.WriteLine($"Статус ответа: {response.StatusCode}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Предупреждение при проверке URL: {ex.Message}");
+                    // Продолжаем выполнение, так как ошибка может быть связана с тем,
+                    // что сервер еще не полностью запущен
+                }
+            }
+
             Console.WriteLine("Попытка установки webhook...");
             await botClient.SetWebhookAsync(
                 url: webhookUrl,
