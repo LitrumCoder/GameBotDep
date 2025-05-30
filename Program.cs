@@ -41,9 +41,16 @@ try
         await botClient.DeleteWebhookAsync();
         await Task.Delay(1000);
 
-        var replUrl = $"https://{Environment.GetEnvironmentVariable("REPL_SLUG")}.{Environment.GetEnvironmentVariable("REPL_OWNER")}.repl.co";
+        // Получаем URL для Replit
+        var replitUrl = Environment.GetEnvironmentVariable("REPL_SLUG") + "." + 
+                       Environment.GetEnvironmentVariable("REPL_OWNER") + "." +
+                       "repl.co";
+        
+        var webhookUrl = $"https://{replitUrl}/api/webhook";
+        Console.WriteLine($"Настраиваю webhook URL: {webhookUrl}");
+
         await botClient.SetWebhookAsync(
-            url: $"{replUrl}/api/webhook",
+            url: webhookUrl,
             allowedUpdates: new[] { UpdateType.Message, UpdateType.CallbackQuery }
         );
 
@@ -53,7 +60,7 @@ try
         });
 
         app.MapControllers();
-        Console.WriteLine($"Бот запущен на Replit и слушает на {replUrl}/api/webhook");
+        Console.WriteLine($"Бот запущен на Replit и слушает на {webhookUrl}");
         await app.RunAsync($"http://0.0.0.0:{port}");
     }
     else

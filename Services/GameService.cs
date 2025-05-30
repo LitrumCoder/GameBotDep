@@ -33,7 +33,6 @@ namespace TelegramGameBot.Services
         public void PlaceMines(int excludeRow, int excludeCol)
         {
             var random = new Random();
-            int minesPlaced = 0;
 
             // Создаем список всех возможных позиций, кроме безопасной зоны вокруг первого клика
             var availablePositions = new List<(int row, int col)>();
@@ -229,7 +228,10 @@ namespace TelegramGameBot.Services
                             break;
                         case var c when c?.StartsWith("dice_type_") == true:
                         case "dice_roll":
-                            await _diceGame.HandleCommand(chatId.Value, userId, command);
+                            if (command != null)
+                            {
+                                await _diceGame.HandleCommand(chatId.Value, userId, command);
+                            }
                             break;
                         case "wheel_game":
                             _userService.SetCurrentGame(userId, "wheel");
